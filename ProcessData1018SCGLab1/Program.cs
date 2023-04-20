@@ -101,16 +101,16 @@ namespace ProcessData1018SCGLab1
                                                     if (stateCellValid)
                                                     {
                                                         var vRaw = (d2 - d1) / deltaT;
-                                                        var v = Precision >= 0 ? Math.Round(vRaw, Precision) : vRaw;
+                                                        var v = Precision > 0 ? Math.Round(vRaw, Precision) : vRaw;
                                                         velocity = v;
                                                         velocities.Add(v);
 
                                                         var mRaw = v * Mass;
-                                                        momentum = Precision >= 0 ? Math.Round(mRaw, Precision) : mRaw;
+                                                        momentum = Precision > 0 ? Math.Round(mRaw, Precision) : mRaw;
                                                         momentums.Add(momentum);
 
                                                         var kRaw = 0.5 * Mass * Math.Pow(v, 2);
-                                                        kinetic = Precision >= 0 ? Math.Round(kRaw, Precision) : kRaw;
+                                                        kinetic = Precision > 0 ? Math.Round(kRaw, Precision) : kRaw;
                                                         kinetics.Add(kinetic);
 
                                                         distance = d2;
@@ -130,9 +130,9 @@ namespace ProcessData1018SCGLab1
                                             counter++;
                                     }
                                 }
-                                averageVelocities[set] = Precision >= 0 ? Math.Round(velocities.Sum() / velocities.Count, Precision) : velocities.Sum() / velocities.Count;
-                                standardDeviations[set] = Precision >= 0 ? Math.Round(velocities.StandardDeviation(), Precision) : velocities.StandardDeviation();
-                                reasonable[set] = Precision >= 0
+                                averageVelocities[set] = Precision > 0 ? Math.Round(velocities.Sum() / velocities.Count, Precision) : velocities.Sum() / velocities.Count;
+                                standardDeviations[set] = Precision > 0 ? Math.Round(velocities.StandardDeviation(), Precision) : velocities.StandardDeviation();
+                                reasonable[set] = Precision > 0
                                     ? Math.Round(100 - standardDeviations[set] / averageVelocities[set], Precision)
                                     : 100 - standardDeviations[set] / averageVelocities[set];
                             }
@@ -248,7 +248,7 @@ namespace ProcessData1018SCGLab1
 
                                     //round allowed?
                                     Console.WriteLine();
-                                    Console.WriteLine(@"Enter rounding precision (-1 for no rounding)");
+                                    Console.WriteLine(@"Enter rounding precision (0 for no rounding)");
 
                                     //get input
                                     var rounding = Console.ReadLine();
@@ -256,32 +256,23 @@ namespace ProcessData1018SCGLab1
                                     //conversion
                                     if (int.TryParse(rounding, out var r))
                                     {
-                                        //zero causes problems
-                                        if (r != 0)
+                                        //negatives are invalid
+                                        if (r >= 0)
                                         {
-                                            //negatives other than -1 are not permitted
-                                            if (r >= -1)
-                                            {
-                                                //apply rounding precision
-                                                Precision = r;
+                                            //apply rounding precision
+                                            Precision = r;
 
-                                                //proceed with processing
-                                                Console.WriteLine();
-                                                Console.WriteLine(@"Processing data...");
-                                                ProcessResults(ResultTrials);
-                                                Console.WriteLine();
-                                                Console.WriteLine($"Exported loaded data: {ResultsFile}");
-                                            }
-                                            else
-                                            {
-                                                Console.WriteLine();
-                                                Console.WriteLine(@"Negative precision is not permitted; processing failed");
-                                            }
+                                            //proceed with processing
+                                            Console.WriteLine();
+                                            Console.WriteLine(@"Processing data...");
+                                            ProcessResults(ResultTrials);
+                                            Console.WriteLine();
+                                            Console.WriteLine($"Exported loaded data: {ResultsFile}");
                                         }
                                         else
                                         {
                                             Console.WriteLine();
-                                            Console.WriteLine(@"Zero precision is not permitted; processing failed");
+                                            Console.WriteLine(@"Negative precision is not permitted; processing failed");
                                         }
                                     }
                                     else
