@@ -41,7 +41,8 @@ namespace ProcessData1018SCGLab1
                                     new DataColumn(@"Time1", typeof(double)),
                                     new DataColumn(@"Time2", typeof(double)),
                                     new DataColumn(@"TimeD", typeof(double)),
-                                    new DataColumn(@"Velocity", typeof(double))
+                                    new DataColumn(@"Dist (m)", typeof(double)),
+                                    new DataColumn(@"Vel (m/s²)", typeof(double))
                                 });
 
                                 var counter = 0;
@@ -49,6 +50,7 @@ namespace ProcessData1018SCGLab1
                                 var distanceCell = 2 + (set * 2);
                                 var deltaTList = new List<double>();
                                 var velocities = new List<double>();
+                                var distances = new List<double>();
                                 for (var i = 2; i < trial.Rows.Count; i += 2)
                                 {
                                     if (i > 0)
@@ -57,6 +59,7 @@ namespace ProcessData1018SCGLab1
                                         var time2 = 0d;
                                         var deltaT = 0d;
                                         var velocity = 0d;
+                                        var distance = 0d;
                                         var stateCellValid = false;
                                         DataRow rowPrev = trial.Rows[i - 2];
                                         DataRow row = trial.Rows[i];
@@ -92,6 +95,9 @@ namespace ProcessData1018SCGLab1
                                                         var v = (d2 - d1) / deltaT;
                                                         velocity = v;
                                                         velocities.Add(v);
+
+                                                        distance = d2;
+                                                        distances.Add(d2);
                                                     }
                                                 }
                                             }
@@ -100,7 +106,7 @@ namespace ProcessData1018SCGLab1
                                         {
                                             if (stateCellValid)
                                             {
-                                                sets[set].Rows.Add(counter + 1, time1, time2, deltaT, velocity);
+                                                sets[set].Rows.Add(counter + 1, time1, time2, deltaT, distance, velocity);
                                             }
                                         }
                                         if (stateCellValid)
@@ -185,7 +191,7 @@ namespace ProcessData1018SCGLab1
                         ResultsFolder = args[0];
 
                         var results = new List<DataTable>();
-                        foreach (var s in Directory.GetFiles(ResultsFolder))
+                        foreach (var s in Directory.GetFiles(ResultsFolder).OrderBy(x => x))
                         {
                             if (Path.GetExtension(s) == @".csv")
                             {
