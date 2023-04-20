@@ -12,12 +12,14 @@ namespace ProcessData1018SCGLab1
         public static string ResultsFolder { get; set; } = @"";
         public static string ResultsFile => $@"{ResultsFolder}\ResultCalculations.xlsx";
         public static DataTable[] ResultTrials { get; set; }
+        public static double Mass { get; set; } = 0d;
+        public static int Precision { get; set; } = 2;
 
         public static void ProcessResults(DataTable[] trials)
         {
             try
             {
-                if (trials?.Length > 0)
+                if (trials?.Length > 0 && Mass > 0)
                 {
                     var resultsWorkbook = new XLWorkbook();
                     var trialCount = 0;
@@ -41,8 +43,10 @@ namespace ProcessData1018SCGLab1
                                     new DataColumn(@"Time1", typeof(double)),
                                     new DataColumn(@"Time2", typeof(double)),
                                     new DataColumn(@"TimeD", typeof(double)),
-                                    new DataColumn(@"Dist (m)", typeof(double)),
-                                    new DataColumn(@"Vel (m/s²)", typeof(double))
+                                    new DataColumn(@"Dist. (m)", typeof(double)),
+                                    new DataColumn(@"Vel. (m/s²)", typeof(double)),
+                                    new DataColumn(@"Kin. (J)", typeof(double)),
+                                    new DataColumn(@"Mmt. (kg⋅m/s²)", typeof(double)),
                                 });
 
                                 var counter = 0;
@@ -51,6 +55,8 @@ namespace ProcessData1018SCGLab1
                                 var deltaTList = new List<double>();
                                 var velocities = new List<double>();
                                 var distances = new List<double>();
+                                var kinetics = new List<double>();
+                                var momentums = new List<double>();
                                 for (var i = 2; i < trial.Rows.Count; i += 2)
                                 {
                                     if (i > 0)
@@ -60,6 +66,8 @@ namespace ProcessData1018SCGLab1
                                         var deltaT = 0d;
                                         var velocity = 0d;
                                         var distance = 0d;
+                                        var kinetic = 0d;
+                                        var momentum = 0d;
                                         var stateCellValid = false;
                                         DataRow rowPrev = trial.Rows[i - 2];
                                         DataRow row = trial.Rows[i];
@@ -92,9 +100,18 @@ namespace ProcessData1018SCGLab1
                                                 {
                                                     if (stateCellValid)
                                                     {
-                                                        var v = (d2 - d1) / deltaT;
+                                                        var vRaw = (d2 - d1) / deltaT;
+                                                        var v = Precision >= 0 ? Math.Round(vRaw, Precision) : vRaw;
                                                         velocity = v;
                                                         velocities.Add(v);
+
+                                                        var mRaw = v * Mass;
+                                                        momentum = Precision >= 0 ? Math.Round(mRaw, Precision) : mRaw;
+                                                        momentums.Add(momentum);
+
+                                                        var kRaw = 0.5 * Mass * Math.Pow(v, 2);
+                                                        kinetic = Precision >= 0 ? Math.Round(kRaw, Precision) : kRaw;
+                                                        kinetics.Add(kinetic);
 
                                                         distance = d2;
                                                         distances.Add(d2);
@@ -106,16 +123,18 @@ namespace ProcessData1018SCGLab1
                                         {
                                             if (stateCellValid)
                                             {
-                                                sets[set].Rows.Add(counter + 1, time1, time2, deltaT, distance, velocity);
+                                                sets[set].Rows.Add(counter + 1, time1, time2, deltaT, distance, velocity, kinetic, momentum);
                                             }
                                         }
                                         if (stateCellValid)
                                             counter++;
                                     }
                                 }
-                                averageVelocities[set] = velocities.Sum() / velocities.Count;
-                                standardDeviations[set] = velocities.StandardDeviation();
-                                reasonable[set] = Math.Round(100 - (standardDeviations[set] / averageVelocities[set]), 2);
+                                averageVelocities[set] = Precision >= 0 ? Math.Round(velocities.Sum() / velocities.Count, Precision) : velocities.Sum() / velocities.Count;
+                                standardDeviations[set] = Precision >= 0 ? Math.Round(velocities.StandardDeviation(), Precision) : velocities.StandardDeviation();
+                                reasonable[set] = Precision >= 0
+                                    ? Math.Round(100 - standardDeviations[set] / averageVelocities[set], Precision)
+                                    : 100 - standardDeviations[set] / averageVelocities[set];
                             }
                             //add sets
                             resultsWorkbook.AddWorksheet($"Trial{trialCount + 1}", trialCount);
@@ -190,6 +209,9 @@ namespace ProcessData1018SCGLab1
                     {
                         ResultsFolder = args[0];
 
+                        //update user
+                        Console.WriteLine("Parsing result files...\n");
+
                         var results = new List<DataTable>();
                         foreach (var s in Directory.GetFiles(ResultsFolder).OrderBy(x => x))
                         {
@@ -206,30 +228,101 @@ namespace ProcessData1018SCGLab1
                         ResultTrials = results.ToArray();
                         if (results.Count > 0)
                         {
+                            //report on status
+                            Console.WriteLine();
                             Console.WriteLine($"Found and loaded {results.Count} trials!");
+
+                            //prompt for mass
                             Console.WriteLine();
-                            Console.WriteLine(@"Processing data...");
-                            ProcessResults(ResultTrials);
-                            Console.WriteLine();
-                            Console.WriteLine($"Exported loaded data: {ResultsFile}");
+                            Console.WriteLine("Enter mass (in kg) for all trials:");
+
+                            //convert mass
+                            var m = Console.ReadLine();
+                            if (double.TryParse(m, out var mass))
+                            {
+                                //verify mass is above zero (object cannot amass to nothing)
+                                if (mass > 0)
+                                {
+                                    //assign converted mass to global
+                                    Mass = mass;
+
+                                    //round allowed?
+                                    Console.WriteLine();
+                                    Console.WriteLine(@"Enter rounding precision (-1 for no rounding)");
+
+                                    //get input
+                                    var rounding = Console.ReadLine();
+
+                                    //conversion
+                                    if (int.TryParse(rounding, out var r))
+                                    {
+                                        //zero causes problems
+                                        if (r != 0)
+                                        {
+                                            //negatives other than -1 are not permitted
+                                            if (r >= -1)
+                                            {
+                                                //apply rounding precision
+                                                Precision = r;
+
+                                                //proceed with processing
+                                                Console.WriteLine();
+                                                Console.WriteLine(@"Processing data...");
+                                                ProcessResults(ResultTrials);
+                                                Console.WriteLine();
+                                                Console.WriteLine($"Exported loaded data: {ResultsFile}");
+                                            }
+                                            else
+                                            {
+                                                Console.WriteLine();
+                                                Console.WriteLine(@"Negative precision is not permitted; processing failed");
+                                            }
+                                        }
+                                        else
+                                        {
+                                            Console.WriteLine();
+                                            Console.WriteLine(@"Zero precision is not permitted; processing failed");
+                                        }
+                                    }
+                                    else
+                                    {
+                                        Console.WriteLine();
+                                        Console.WriteLine(@"Invalid precision; processing failed");
+                                    }
+                                }
+                                else
+                                {
+                                    Console.WriteLine();
+                                    Console.WriteLine(@"Mass cannot be equal to or less than zero; processing failed");
+                                }
+                            }
+                            else
+                            {
+                                Console.WriteLine();
+                                Console.WriteLine(@"Invalid mass; processing failed");
+                            }
                         }
                         else
                         {
+                            Console.WriteLine();
                             Console.WriteLine("No results were found in the provided folder");
                         }
                     }
                     else
                     {
+                        Console.WriteLine();
                         Console.WriteLine("Invalid results folder");
                     }
                 }
                 else
                 {
+                    Console.WriteLine();
                     Console.WriteLine("Invalid results folder");
                 }
             }
             else
             {
+                Console.WriteLine();
                 Console.WriteLine("No results folder specified");
             }
             PauseProgram();
